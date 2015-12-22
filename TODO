@@ -1,0 +1,31 @@
+* ContainerLauncher to launch containers defined w/ContainerDef
+  * DockerClient to interface with docker api
+* Container interdependencies
+  * Container can have dependencies on other container defs
+  * add links to dependency containers
+  * add env variables pointing to dependency containers
+* ClusterManager to take a container graph and launch it
+  * Traverse down dependency tree to launch leafs first
+
+    mysqld
+      ^
+       \
+        |-- bootstrap <-- appd <-- tests
+       /
+      v
+     redisd
+
+    * daemons
+      * launch and verify can accept connections
+    * non-daemons
+      * launch and verify exits cleanly
+    * Only launch if not already launched
+  * Raise exceptions appropriately if any launches fail
+  * when top level container exits, tear down dependent containers
+* ContainerTask
+  * Subclass task
+  * Build graph of container defs
+  * Launch w/ClusterManager
+* Usage information in README
+* Details information in README
+
