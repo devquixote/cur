@@ -5,10 +5,9 @@ require 'pp'
 require_relative 'payloads'
 
 module Cur
-  # Client for interfacing with the docker API.  API v1.21 (docker version 1.9.x) is used
-  # by default.
+  # Client for interfacing with the docker API.  API v1.20 is used by default
   #
-  # See https://docs.docker.com/engine/reference/api/docker_remote_api_v1.21/
+  # See https://docs.docker.com/engine/reference/api/docker_remote_api_v1.20/
   class DockerClient
     include Payloads
 
@@ -43,7 +42,7 @@ module Cur
     attr_reader :api_version, :protocol, :location, :port, :logger
 
     def initialize(opts={})
-      @api_version = opts[:api_version] || 'v1.21'
+      @api_version = opts[:api_version] || 'v1.20'
       @protocol = opts[:protocol] || 'unix'
       @location = opts[:location] || '/var/run/docker.sock'
       @port = opts[:port]
