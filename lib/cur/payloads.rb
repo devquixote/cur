@@ -10,12 +10,12 @@ module Cur
 
     def multi_json_to_dto(json)
       # dirty deeds, done dirt cheap
-      StringIO.new(json).readlines.map(&:strip)
-                                  .map(&split_objs)
-                                  .flatten
-                                  .map(&massage_lines)
-                                  .compact
-                                  .map(&to_dtos)
+      lines = StringIO.new(json).readlines.map(&:strip)
+      lines = lines.map(&split_objs)
+      lines = lines.flatten
+      lines = lines.map(&massage_lines)
+      lines = lines.compact
+      lines = lines.map(&to_dtos)
     end
 
     def dto_to_json(dto)
@@ -60,6 +60,7 @@ module Cur
       lambda do |line|
         line = "{#{line}" unless line.match /^{/
         line = "#{line}}" unless line.match /}[\n]?$/
+        line
       end
     end
   end

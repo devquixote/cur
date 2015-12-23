@@ -20,7 +20,7 @@ module Cur
     let(:multi_json) do
       <<-JSON
         {"status": "Pulling..."}
-        {"status": "Pulling..."}
+        {"status": "Pulling..."}{"status": "Pulling..."}
       JSON
     end
 
@@ -61,7 +61,7 @@ module Cur
     describe "#multi_json_to_dto" do
       it "should convert multi json objects to an array of DTO objects" do
         dtos = dependent.multi_json_to_dto(multi_json)
-        expect(dtos.size).to eq(2)
+        expect(dtos.size).to eq(3)
         dtos.each do |dto|
           expect(dto.status).to eq("Pulling...")
         end
