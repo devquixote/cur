@@ -7,36 +7,36 @@ module Cur
 
     describe "#address" do
       it "should default to standard docker unix domain socket" do
-        client = DockerClient.new
-        expect(client.address).to eq("unix:///var/run/docker.sock")
+        docker = DockerClient.new
+        expect(docker.address).to eq("unix:///var/run/docker.sock")
       end
 
-      it "should allow overriding of the protocol when the client is constructed" do
-        client = DockerClient.new :protocol => 'http'
-        expect(client.address).to eq("http:///var/run/docker.sock")
+      it "should allow overriding of the protocol when the docker is constructed" do
+        docker = DockerClient.new :protocol => 'http'
+        expect(docker.address).to eq("http:///var/run/docker.sock")
       end
 
-      it "should allow overriding of the location when the client is constructed" do
-        client = DockerClient.new :location => '127.0.0.1'
-        expect(client.address).to eq("unix://127.0.0.1")
+      it "should allow overriding of the location when the docker is constructed" do
+        docker = DockerClient.new :location => '127.0.0.1'
+        expect(docker.address).to eq("unix://127.0.0.1")
       end
     end
 
     describe "image operations" do
-      let(:client) { DockerClient.new log_path: log_path }
+      let(:docker) { DockerClient.new log_path: log_path }
 
-      before { client.delete_image(image='busybox', force=true) rescue nil }
+      before { docker.delete_image(image='busybox', force=true) rescue nil }
 
       it "should allow images to be pulled, listed, inspected and removed" do
-        client.pull_image(image='busybox')
+        docker.pull_image(image='busybox')
 
-        image_tags = client.list_images.map(&:RepoTags).flatten
+        image_tags = docker.list_images.map(&:RepoTags).flatten
         expect(image_tags.include?("busybox:latest")).to be true
 
-        busybox = client.inspect_image(image='busybox')
+        busybox = docker.inspect_image(image='busybox')
         expect(busybox.Id).to_not be_nil
 
-        untagged = client.delete_image(image='busybox', force=true)
+        untagged = docker.delete_image(image='busybox', force=true)
                          .detect{|delete| delete.Untagged}
                          .Untagged
         expect(untagged).to eq("busybox:latest")
@@ -44,10 +44,10 @@ module Cur
     end
 
     describe "#ping" do
-      let(:client) { DockerClient.new log_path: log_path }
+      let(:docker) { DockerClient.new log_path: log_path }
 
       it "should return true if it can connect to the docker daemon" do
-        expect(client.ping).to be true
+        expect(docker.ping).to be true
       end
 
       it "should return false if it cannot connect to the docker daemon" do
@@ -56,7 +56,7 @@ module Cur
     end
 
     describe "container operations" do
-      let(:client) { DockerClient.new log_path: log_path }
+      let(:docker) { DockerClient.new log_path: log_path }
       let(:container_def) do
         {
           Image: 'busybox',
@@ -72,52 +72,167 @@ module Cur
       end
 
       before do
-        client.pull_image(image='busybox')
-        client.list_containers.select{|c| c.Labels && c.Labels.curtest}.each do |container|
-          client.delete_container(id=container.id, force=true) rescue nil
+        docker.pull_image(image='busybox')
+        docker.list_containers.select{|c| c.Labels && c.Labels.curtest}.each do |container|
+          docker.delete_container(id=container.id, force=true) rescue nil
         end
       end
 
       it "should allow containers to be created, listed, inspected and deleted" do
-        container = client.create_container(container_def)
+        container = docker.create_container('curtest', container_def)
         expect(container.Id).to_not be_empty
 
-        container_meta = client.list_containers.detect{|c| c.Labels.curtest}
+        container_meta = docker.list_containers.detect{|c| c.Labels.curtest}
         expect(container_meta).to_not be_nil
 
-        container = client.inspect_container(id=container.Id)
+        container = docker.inspect_container(id=container.Id)
         expect(container).to_not be_nil
 
-        client.delete_container(id=container.Id, force=true)
-        expect{client.inspect_container(id=container.Id)}.to raise_error(DockerClient::APIError)
+        docker.delete_container(id=container.Id, force=true)
+        expect{docker.inspect_container(id=container.Id)}.to raise_error(DockerClient::APIError)
       end
 
       it "should allow for containers to be started, attached to and waited upon" do
-        container = client.create_container(container_def)
-        expect(client.start_container(id=container.Id)).to be true
+        container = docker.create_container('curtest', container_def)
+        expect(docker.start_container(id=container.Id)).to be true
         sleep(0.1)
-        expect(client.attach_container(id=container.Id).Stream.strip).to eq("curtest")
-        expect(client.wait_container(id=container.Id).StatusCode).to eq(0)
-        expect(client.container_logs(id=container.Id).Stream).to_not be_empty
+        expect(docker.attach_container(id=container.Id).Stream.strip).to eq("curtest")
+        expect(docker.wait_container(id=container.Id).StatusCode).to eq(0)
+        expect(docker.container_logs(id=container.Id).Stream).to_not be_empty
+        docker.stop_container(container.Id)
+        docker.delete_container(container.Id)
       end
 
       describe "long-running containers" do
         let!(:container) do
-          client.create_container(container_def).tap do |container|
-            client.start_container(id=container.Id)
+          docker.create_container('curtest', container_def).tap do |container|
+            docker.start_container(id=container.Id)
           end
+        end
+        after(:each) do
+          docker.stop_container(container.Id)
+          docker.delete_container(container.Id)
         end
 
         it "should allow for containers to be stopped" do
-          expect(client.stop_container(container.Id)).to be true
-          container_details = client.inspect_container(container.Id)
+          expect(docker.stop_container(container.Id)).to be true
+          container_details = docker.inspect_container(container.Id)
           expect(container_details.State.Running).to be false
         end
 
         it "should allow for containers to be killed" do
-          expect(client.kill_container(container.Id, signal='SIGKILL')).to be true
-          container_details = client.inspect_container(container.Id)
+          expect(docker.kill_container(container.Id, signal='SIGKILL')).to be true
+          container_details = docker.inspect_container(container.Id)
           expect(container_details.State.Running).to be false
+        end
+      end
+    end
+
+    describe "for various runtime scenarios" do
+      let(:docker) { DockerClient.new }
+      before do
+        docker.delete_image(image='busybox', force=true) rescue nil
+        File.delete('curtest') if File.exists?('curtest')
+      end
+
+      it "should be able to pull an image, create a container from it and start the container with the current working directory mounted in the container" do
+        details = {
+          Image: 'busybox',
+          HostConfig: {
+            Binds: ["#{File.expand_path('.')}:/cur"]
+          },
+          Cmd: ['/bin/touch', '/cur/curtest']
+        }
+
+        docker.pull_image(image='busybox')
+        container = docker.create_container('curtest', details)
+        docker.start_container(id=container.Id)
+        docker.stop_container(id=container.Id)
+        docker.delete_container(id=container.Id)
+        docker.delete_image(image='busybox', force=true)
+
+        expect(File.exists?('curtest')).to be true
+        File.delete('curtest')
+      end
+
+      it "should be able to link to another container and communicate via exposed ports" do
+        server_details = {
+          Image: 'busybox',
+          Cmd: ['/bin/nc', '-l', '-p', '8080', '-e', '/bin/hostname']
+        }
+        client_details = {
+          Image: 'busybox',
+          Cmd: ['/bin/nc', 'server', '8080'],
+          HostConfig: {
+            Links: ["curtest.server:server"]
+          }
+        }
+
+        # bring up containers
+        docker.pull_image(image='busybox')
+        server = docker.create_container('curtest.server', server_details)
+        client = docker.create_container('curtest.client', client_details)
+        docker.start_container(id=server.Id)
+        docker.start_container(id=client.Id)
+
+        # bring down containers
+        docker.stop_container(id=client.Id)
+        client_details = docker.inspect_container(id=client.Id)
+        docker.delete_container(id=client.Id)
+        docker.stop_container(id=server.Id)
+        docker.delete_container(id=server.Id)
+
+        # assertions
+        expect(client_details.State.Status).to eq('exited')
+        expect(client_details.State.ExitCode).to eq(0)
+      end
+
+      it "should be able to be observed for connectability outside of the container" do
+        daemon_details = {
+          Image: 'busybox',
+          Cmd: ['/bin/nc', '-l', '-p', '8080'],
+          ExposedPorts: {
+            "8080/tcp" => {}
+          }
+        }
+        observer_details = {
+          Image: 'busybox',
+          HostConfig: {
+            Links: ['curtest.daemon:daemon']
+          },
+          Cmd: ["/bin/sh", "-c", "/bin/echo info | /bin/nc daemon 8080"]
+        }
+
+        # bring up containers
+        docker.pull_image(image='busybox')
+        daemon = docker.create_container('curtest.daemon', daemon_details)
+        observer = docker.create_container('curtest.observer', observer_details)
+        begin
+          docker.start_container(id=daemon.Id)
+          sleep(1)
+          docker.start_container(id=observer.Id)
+
+          # collect info on observer
+          observer_details = nil
+          counter = 0
+          loop do
+            sleep(0.1)
+            counter += 1
+            observer_details = docker.inspect_container(id=observer.Id)
+            raise 'timeout exceeded' if counter >= 100
+            break if observer_details.State.Status == "exited"
+          end
+
+          # Assertions
+          output = docker.attach_container(id=observer.Id).Stream.strip
+          failure_msg = "Non-zero exit status (#{observer_details.State.ExitCode}) - #{output}"
+          expect(observer_details.State.ExitCode).to eq(0), failure_msg
+        ensure
+          # bring down containers
+          [daemon.Id, observer.Id].each do |id|
+            docker.stop_container(id=id) rescue nil
+            docker.delete_container(id=id) rescue nil
+          end
         end
       end
     end

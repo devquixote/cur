@@ -73,8 +73,8 @@ module Cur
       json_to_dto(request_and_response(:delete_image, id: image, params: {force: force}))
     end
 
-    def create_container(payload)
-      json_to_dto(request_and_response(:create_container, payload: payload))
+    def create_container(name, details)
+      json_to_dto(request_and_response(:create_container, payload: details, params: {name: name}))
     end
 
     def delete_container(id=nil, force=false)
@@ -139,12 +139,13 @@ module Cur
     private
 
     def request_and_response(endpoint_key, details={})
+      payload = details.delete(:payload)
       endpoint = DockerClient::API[endpoint_key]
       request = build(endpoint, details)
       logger.info("#{request.method} #{request.path}")
-      if details[:payload]
-        logger.info("#{JSON.pretty_generate(details[:payload])}")
-        request.body = JSON.dump(details[:payload])
+      if payload
+        logger.info("#{JSON.pretty_generate(payload)}")
+        request.body = JSON.dump(payload)
       end
       response = http_client.request(request)
       unless endpoint.valid_responses.include? response.code
