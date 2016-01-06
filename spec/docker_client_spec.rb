@@ -30,15 +30,15 @@ module Cur
       it "should allow images to be pulled, listed, inspected and removed" do
         docker.pull_image(image='busybox')
 
-        image_tags = docker.list_images.map(&:RepoTags).flatten
+        image_tags = docker.list_images.map(&:repo_tags).flatten
         expect(image_tags.include?("busybox:latest")).to be true
 
         busybox = docker.inspect_image(image='busybox')
-        expect(busybox.Id).to_not be_nil
+        expect(busybox.id).to_not be_nil
 
         untagged = docker.delete_image(image='busybox', force=true)
-                         .detect{|delete| delete.Untagged}
-                         .Untagged
+                         .detect{|delete| delete.untagged}
+                         .untagged
         expect(untagged).to eq("busybox:latest")
       end
     end
@@ -80,50 +80,50 @@ module Cur
 
       it "should allow containers to be created, listed, inspected and deleted" do
         container = docker.create_container('curtest', container_def)
-        expect(container.Id).to_not be_empty
+        expect(container.id).to_not be_empty
 
-        container_meta = docker.list_containers.detect{|c| c.Labels.curtest}
+        container_meta = docker.list_containers.detect{|c| c.labels.curtest}
         expect(container_meta).to_not be_nil
 
-        container = docker.inspect_container(id=container.Id)
+        container = docker.inspect_container(id=container.id)
         expect(container).to_not be_nil
 
-        docker.delete_container(id=container.Id, force=true)
-        expect{docker.inspect_container(id=container.Id)}.to raise_error(DockerClient::APIError)
+        docker.delete_container(id=container.id, force=true)
+        expect{docker.inspect_container(id=container.id)}.to raise_error(DockerClient::APIError)
       end
 
       it "should allow for containers to be started, attached to and waited upon" do
         container = docker.create_container('curtest', container_def)
-        expect(docker.start_container(id=container.Id)).to be true
+        expect(docker.start_container(id=container.id)).to be true
         sleep(0.1)
-        expect(docker.attach_container(id=container.Id).Stream.strip).to eq("curtest")
-        expect(docker.wait_container(id=container.Id).StatusCode).to eq(0)
-        expect(docker.container_logs(id=container.Id).Stream).to_not be_empty
-        docker.stop_container(container.Id)
-        docker.delete_container(container.Id)
+        expect(docker.attach_container(id=container.id).stream.strip).to eq("curtest")
+        expect(docker.wait_container(id=container.id).status_code).to eq(0)
+        expect(docker.container_logs(id=container.id).stream).to_not be_empty
+        docker.stop_container(container.id)
+        docker.delete_container(container.id)
       end
 
       describe "long-running containers" do
         let!(:container) do
           docker.create_container('curtest', container_def).tap do |container|
-            docker.start_container(id=container.Id)
+            docker.start_container(id=container.id)
           end
         end
         after(:each) do
-          docker.stop_container(container.Id)
-          docker.delete_container(container.Id)
+          docker.stop_container(container.id)
+          docker.delete_container(container.id)
         end
 
         it "should allow for containers to be stopped" do
-          expect(docker.stop_container(container.Id)).to be true
-          container_details = docker.inspect_container(container.Id)
-          expect(container_details.State.Running).to be false
+          expect(docker.stop_container(container.id)).to be true
+          container_details = docker.inspect_container(container.id)
+          expect(container_details.state.running).to be false
         end
 
         it "should allow for containers to be killed" do
-          expect(docker.kill_container(container.Id, signal='SIGKILL')).to be true
-          container_details = docker.inspect_container(container.Id)
-          expect(container_details.State.Running).to be false
+          expect(docker.kill_container(container.id, signal='SIGKILL')).to be true
+          container_details = docker.inspect_container(container.id)
+          expect(container_details.state.running).to be false
         end
       end
     end
@@ -146,9 +146,9 @@ module Cur
 
         docker.pull_image(image='busybox')
         container = docker.create_container('curtest', details)
-        docker.start_container(id=container.Id)
-        docker.stop_container(id=container.Id)
-        docker.delete_container(id=container.Id)
+        docker.start_container(id=container.id)
+        docker.stop_container(id=container.id)
+        docker.delete_container(id=container.id)
         docker.delete_image(image='busybox', force=true)
 
         expect(File.exists?('curtest')).to be true
@@ -172,19 +172,19 @@ module Cur
         docker.pull_image(image='busybox')
         server = docker.create_container('curtest.server', server_details)
         client = docker.create_container('curtest.client', client_details)
-        docker.start_container(id=server.Id)
-        docker.start_container(id=client.Id)
+        docker.start_container(id=server.id)
+        docker.start_container(id=client.id)
 
         # bring down containers
-        docker.stop_container(id=client.Id)
-        client_details = docker.inspect_container(id=client.Id)
-        docker.delete_container(id=client.Id)
-        docker.stop_container(id=server.Id)
-        docker.delete_container(id=server.Id)
+        docker.stop_container(id=client.id)
+        client_details = docker.inspect_container(id=client.id)
+        docker.delete_container(id=client.id)
+        docker.stop_container(id=server.id)
+        docker.delete_container(id=server.id)
 
         # assertions
-        expect(client_details.State.Status).to eq('exited')
-        expect(client_details.State.ExitCode).to eq(0)
+        expect(client_details.state.status).to eq('exited')
+        expect(client_details.state.exit_code).to eq(0)
       end
 
       it "should be able to be observed for connectability outside of the container" do
@@ -208,9 +208,9 @@ module Cur
         daemon = docker.create_container('curtest.daemon', daemon_details)
         observer = docker.create_container('curtest.observer', observer_details)
         begin
-          docker.start_container(id=daemon.Id)
+          docker.start_container(id=daemon.id)
           sleep(1)
-          docker.start_container(id=observer.Id)
+          docker.start_container(id=observer.id)
 
           # collect info on observer
           observer_details = nil
@@ -218,18 +218,18 @@ module Cur
           loop do
             sleep(0.1)
             counter += 1
-            observer_details = docker.inspect_container(id=observer.Id)
+            observer_details = docker.inspect_container(id=observer.id)
             raise 'timeout exceeded' if counter >= 100
-            break if observer_details.State.Status == "exited"
+            break if observer_details.state.status == "exited"
           end
 
           # Assertions
-          output = docker.attach_container(id=observer.Id).Stream.strip
-          failure_msg = "Non-zero exit status (#{observer_details.State.ExitCode}) - #{output}"
-          expect(observer_details.State.ExitCode).to eq(0), failure_msg
+          output = docker.attach_container(id=observer.id).stream.strip
+          failure_msg = "Non-zero exit status (#{observer_details.state.exit_code}) - #{output}"
+          expect(observer_details.state.exit_code).to eq(0), failure_msg
         ensure
           # bring down containers
-          [daemon.Id, observer.Id].each do |id|
+          [daemon.id, observer.id].each do |id|
             docker.stop_container(id=id) rescue nil
             docker.delete_container(id=id) rescue nil
           end
