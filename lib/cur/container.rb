@@ -8,16 +8,21 @@ module Cur
     extend Forwardable
 
     @validator = ContainerValidator
+    @create_dto_builder = CreateContainerDTOBuilder
+
     class << self
-      attr_accessor :validator
+      attr_accessor :validator, :create_dto_builder
     end
 
     attr_accessor :definition
-    attr_reader :state
-    def_delegators :@definition, :name, :type, :image
+    attr_reader :state, :docker, :id
+    def_delegators :@definition, :name, :type, :image, :command, :working_dir,
+                                  :volumes, :links, :env, :exposed_ports
 
-    def initialize(&block)
+    def initialize(docker, &block)
+      raise "Must provide docker client" unless docker.is_a? DockerClient
       raise "Must provide block to initialize container" unless block
+      @docker = docker
       @definition = OpenStruct.new
       block.call(definition)
       normalize!
@@ -35,7 +40,10 @@ module Cur
     end
 
     def create!
-      raise 'not implemented'
+      raise "Container already created" if id
+      @id = docker.create_container(name, create_dto).id
+      @state = :created
+      true
     end
 
     def start!
@@ -51,7 +59,11 @@ module Cur
     end
 
     def destroy!
-      raise 'not implemented'
+      raise "Container not created" unless id
+      docker.delete_container(id, true)
+      @id = nil
+      @state = :destroyed
+      true
     end
 
     def inspect
@@ -59,6 +71,11 @@ module Cur
     end
 
     private 
+
+    def create_dto
+      @create_dto ||= Container.create_dto_builder.new(self).build
+    end
+
     def normalize!
       definition.type = type.to_s.to_sym
       definition.image = image.to_s
