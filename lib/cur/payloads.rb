@@ -1,9 +1,12 @@
 require 'json'
 require 'ostruct'
 require 'stringio'
+require_relative 'inflections'
 
 module Cur
   module Payloads
+    include Inflections
+
     def json_to_dto(json)
       doc_to_dto(JSON.parse(json))
     end
@@ -26,9 +29,12 @@ module Cur
       if doc.kind_of? Array
         doc.map{|e| doc_to_dto(e)}
       elsif doc.kind_of? Hash
-        dto = OpenStruct.new(doc)
+        underscored_doc = doc.keys.inject({}) do |new, key|
+          new[underscore(key)] = doc[key]; new
+        end
+        dto = OpenStruct.new(underscored_doc)
         doc.each do |k, v|
-          dto.send("#{k}=", doc_to_dto(v)) if v.kind_of? Hash
+          dto.send("#{underscore(k)}=", doc_to_dto(v)) if v.kind_of? Hash
         end
         dto
       else
@@ -40,8 +46,9 @@ module Cur
       doc = Hash.new
       attrs = (dto.methods - OpenStruct.instance_methods).reject{|m| m.to_s.match /\=/}
       attrs.each do |attr|
-        doc[attr] = dto.send(attr)
-        doc[attr] = dto_to_doc(doc[attr]) if doc[attr].kind_of? OpenStruct
+        c_attr = camelize(attr).to_sym
+        doc[c_attr] = dto.send(attr)
+        doc[c_attr] = dto_to_doc(doc[c_attr]) if doc[c_attr].kind_of? OpenStruct
       end
       doc
     end
