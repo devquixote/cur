@@ -181,5 +181,26 @@ module Cur
         expect{container.stop!}.to raise_error("Container not started")
       end
     end
+
+    describe "#inspect" do
+      around(:each) do |example|
+        begin
+          container.create!
+          example.run
+        ensure
+          container.destroy! rescue nil
+        end
+      end
+
+      it "should retrieve information about the container from docker" do
+        details = container.inspect
+        expect(details.state.status).to eq("created")
+      end
+
+      it "should not be retrievable if the container has not been created" do
+        container.destroy!
+        expect{container.inspect}.to raise_error("Container not created")
+      end
+    end
   end
 end

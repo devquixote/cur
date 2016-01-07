@@ -77,7 +77,8 @@ module Cur
     end
 
     def inspect
-      raise 'not implemented'
+      raise "Container not created" unless id
+      docker.inspect_container(id)
     end
 
     private 
