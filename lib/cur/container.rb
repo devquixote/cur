@@ -17,7 +17,7 @@ module Cur
     attr_accessor :definition
     attr_reader :state, :docker, :id
     def_delegators :@definition, :name, :type, :image, :command, :working_dir,
-                                  :volumes, :links, :env, :exposed_ports
+                                  :volumes, :links, :env, :exposed_ports, :term_signal
 
     def initialize(docker, &block)
       raise "Must provide docker client" unless docker.is_a? DockerClient
@@ -47,15 +47,25 @@ module Cur
     end
 
     def start!
-      raise 'not implemented'
+      raise "Container not created" unless id
+      raise "Container already started" if @state == :started
+      docker.start_container(id)
+      @state = :started
+      true
     end
 
     def stop!
-      raise 'not implemented'
-    end
-
-    def kill!
-      raise 'not implemented'
+      raise "Container not started" unless state == :started
+      if term_signal
+        # TODO this may need to be expanded on.  What if the
+        # term_signal is caught and ignored by the command
+        # running in the container?
+        docker.kill_container(id, term_signal)
+      else
+        docker.stop_container(id)
+      end
+      @state = :stopped
+      true
     end
 
     def destroy!

@@ -8,7 +8,8 @@ module Cur
         container.name = 'cur.test'
         container.type = :task
         container.image = 'busybox'
-        container.command = ['/bin/echo', 'test']
+        container.command = ['/bin/sleep', '5']
+        container.term_signal = 'SIGKILL'
       end
     end
 
@@ -119,6 +120,65 @@ module Cur
 
       it "should raise error if container not created" do
         expect{container.destroy!}.to raise_error("Container not created")
+      end
+    end
+
+    describe "#start!" do
+      around(:each) do |example|
+        begin
+          container.create!
+          container.start!
+          example.run
+        ensure
+          container.stop!
+          container.destroy!
+        end
+      end
+
+      it "should start the container" do
+        details = docker.inspect_container(container.id)
+        expect(details.state.status).to eq("running")
+      end
+
+      it "should set the container's state to started" do
+        expect(container.state).to eq(:started)
+      end
+
+      it "should raise error if container already started" do
+        expect{container.start!}.to raise_error('Container already started')
+      end
+    end
+
+    describe "#stop!" do
+      around(:each) do |example|
+        begin
+          container.create!
+          container.start!
+          container.stop!
+          example.run
+        ensure
+          container.destroy!
+        end
+      end
+
+      it "should result in the container being stopped" do
+        details = docker.inspect_container(container.id)
+        expect(details.state.status).to eq("exited")
+      end
+
+      it "should set the container's state to stopped" do
+        expect(container.state).to eq(:stopped)
+      end
+
+      it "should leave the container able to be restarted" do
+        container.start!
+        details = docker.inspect_container(container.id)
+        expect(details.state.status).to eq("running")
+        container.stop!
+      end
+
+      it "should raise error if we are not currently started" do
+        expect{container.stop!}.to raise_error("Container not started")
       end
     end
   end
