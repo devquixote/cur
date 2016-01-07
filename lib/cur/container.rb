@@ -17,7 +17,8 @@ module Cur
     attr_accessor :definition
     attr_reader :state, :docker, :id
     def_delegators :@definition, :name, :type, :image, :command, :working_dir,
-                                  :volumes, :links, :env, :exposed_ports, :term_signal
+                                  :volumes, :links, :env, :exposed_ports, :term_signal,
+                                  :wait_for_service
 
     def initialize(docker, &block)
       raise "Must provide docker client" unless docker.is_a? DockerClient
@@ -39,6 +40,10 @@ module Cur
       type == :task
     end
 
+    def active?
+      @state == :started || @state == :ready || @state == :working
+    end
+
     def create!
       raise "Container already created" if id
       @id = docker.create_container(name, create_dto).id
@@ -48,14 +53,20 @@ module Cur
 
     def start!
       raise "Container not created" unless id
-      raise "Container already started" if @state == :started
+      raise "Container already started" if active?
       docker.start_container(id)
       @state = :started
+      block_until_ready if service? && wait_for_service
+      @state = if service?
+        :ready
+      else
+        :working
+      end
       true
     end
 
     def stop!
-      raise "Container not started" unless state == :started
+      raise "Container not started" unless active?
       if term_signal
         # TODO this may need to be expanded on.  What if the
         # term_signal is caught and ignored by the command
@@ -82,6 +93,10 @@ module Cur
     end
 
     private 
+
+    def block_until_ready
+      # TODO implement me
+    end
 
     def create_dto
       @create_dto ||= Container.create_dto_builder.new(self).build

@@ -35,7 +35,7 @@ module Cur
       end
 
       it "should contain the ExposedPorts" do
-        expect(payload['ExposedPorts']).to eq(["80/tcp","443/udp"])
+        expect(payload['ExposedPorts']).to eq({"80/tcp"=>{},"443/udp"=>{}})
       end
 
       it "should contain Links in the HostConfig" do

@@ -34,12 +34,12 @@ module Cur
 
     def links
       return nil unless container.links
-      container.links.map { |link| "#{link.container_name}:#{link.host_name}" }
+      container.links.map(&:to_s)
     end
 
     def binds
       return nil unless container.volumes
-      container.volumes.map { |vol| "#{vol.host_path}:#{vol.container_path}" }
+      container.volumes.map(&:to_s)
     end
 
     def env
@@ -49,7 +49,11 @@ module Cur
 
     def exposed_ports
       return nil unless container.exposed_ports
-      container.exposed_ports.map{|ep| "#{ep.port}/#{ep.protocol}"}
+      {}.tap do |hash|
+        container.exposed_ports.map(&:to_s).each do |port|
+          hash[port] = {}
+        end
+      end
     end
 
     private

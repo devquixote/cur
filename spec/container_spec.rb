@@ -141,7 +141,7 @@ module Cur
       end
 
       it "should set the container's state to started" do
-        expect(container.state).to eq(:started)
+        expect(container.state).to eq(:working)
       end
 
       it "should raise error if container already started" do
