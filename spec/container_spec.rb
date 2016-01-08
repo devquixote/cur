@@ -204,7 +204,7 @@ module Cur
       end
     end
 
-    describe "#attach" do
+    describe "#output" do
       around(:each) do |example|
         begin
           container.create!
@@ -218,12 +218,39 @@ module Cur
 
       it "should return the standard output from the container" do
         sleep(0.5)
-        expect(container.attach.stream).to match(/starting/)
+        expect(container.output.stream).to eq(["starting"])
       end
 
       it "should raise error if the container is not started" do
         container.stop!
-        expect{container.attach}.to raise_error("Container not started")
+        expect{container.output}.to raise_error("Container not started")
+      end
+    end
+
+    describe "#attach" do
+      around(:each) do |example|
+        begin
+          container.create!
+          container.start!
+          example.run
+        ensure
+          container.stop! rescue nil
+          container.destroy! rescue nil
+        end
+      end
+
+      it "should callback to a passed block with any new output" do
+        stream = []
+        container.attach do |output|
+          stream << output
+        end
+        sleep(6)
+        expect(stream.flatten).to eq(["starting", "done"])
+      end
+
+      it "should raise exception if the container is not started" do
+        container.stop!
+        expect{container.attach{|output| }}.to raise_error("Container not started")
       end
     end
   end

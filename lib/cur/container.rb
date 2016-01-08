@@ -1,5 +1,6 @@
 require 'forwardable'
 require 'ostruct'
+require 'set'
 
 module Cur
   # High level concept of a container that can be created, started, stopped,
@@ -92,9 +93,26 @@ module Cur
       docker.inspect_container(id)
     end
 
-    def attach
+    def output
       raise "Container not started" unless active?
       docker.attach_container(id)
+    end
+
+    def attach(opts={}, &block)
+      raise "Container not started" unless active?
+
+      interval = opts[:interval] || 0.1
+      previous_stream = []
+
+      Thread.new do
+        loop do
+          sleep interval
+          stream = docker.attach_container(id).stream
+          new_events = stream - previous_stream
+          block.call(new_events) unless new_events.empty?
+          previous_stream = stream
+        end
+      end
     end
 
     private 
