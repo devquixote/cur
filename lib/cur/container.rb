@@ -92,6 +92,11 @@ module Cur
       docker.inspect_container(id)
     end
 
+    def attach
+      raise "Container not started" unless active?
+      docker.attach_container(id)
+    end
+
     private 
 
     def block_until_ready

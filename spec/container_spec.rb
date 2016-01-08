@@ -8,7 +8,8 @@ module Cur
         container.name = 'cur.test'
         container.type = :task
         container.image = 'busybox'
-        container.command = ['/bin/sleep', '5']
+        #container.command = ['/bin/sleep', '5']
+        container.command = ['/bin/sh', '-c', '/bin/echo starting && /bin/sleep 5 && /bin/echo done']
         container.term_signal = 'SIGKILL'
       end
     end
@@ -200,6 +201,29 @@ module Cur
       it "should not be retrievable if the container has not been created" do
         container.destroy!
         expect{container.inspect}.to raise_error("Container not created")
+      end
+    end
+
+    describe "#attach" do
+      around(:each) do |example|
+        begin
+          container.create!
+          container.start!
+          example.run
+        ensure
+          container.stop! rescue nil
+          container.destroy!
+        end
+      end
+
+      it "should return the standard output from the container" do
+        sleep(0.5)
+        expect(container.attach.stream).to match(/starting/)
+      end
+
+      it "should raise error if the container is not started" do
+        container.stop!
+        expect{container.attach}.to raise_error("Container not started")
       end
     end
   end
