@@ -26,6 +26,7 @@ module Cur
         'HostConfig' => {}
       }
 
+      load_static_attrs_into result
       load_attrs_into result
       load_host_config_attrs_into result['HostConfig']
       result.delete('HostConfig') if result['HostConfig'].empty?
@@ -68,6 +69,15 @@ module Cur
       self.class.host_config_attrs.each do |attr|
         hash[camelize(attr)] = send(attr) if send(attr)
       end
+    end
+
+    def load_static_attrs_into(hash)
+      hash[:Tty] = true
+      hash[:AttachStdout] = true
+      hash[:AttachStderr] = true
+      hash[:AttachStdin] = true
+      hash[:OpenStdin] = true
+      hash[:StdinOnce] = true
     end
   end
 end

@@ -49,7 +49,8 @@ module Cur
       it "should not blow up when attributes are missing" do
         container = OpenStruct.new
         payload = CreateContainerDTOBuilder.new(container).build
-        expect(payload).to eq({})
+        expected = {Tty: true, AttachStdout: true, AttachStderr: true}
+        expect(payload).to eq(expected)
       end
     end
   end
