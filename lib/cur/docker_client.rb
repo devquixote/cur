@@ -47,6 +47,7 @@ module Cur
       @location = opts[:location] || '/var/run/docker.sock'
       @port = opts[:port]
       @logger = Logger.new(opts[:log_path] || STDOUT)
+      @logger.level = opts[:log_level] || Logger::INFO
     end
 
     def ping
@@ -142,9 +143,9 @@ module Cur
       payload = details.delete(:payload)
       endpoint = DockerClient::API[endpoint_key]
       request = build(endpoint, details)
-      logger.info("#{request.method} #{request.path}")
+      logger.debug("#{request.method} #{request.path}")
       if payload
-        logger.info("#{JSON.pretty_generate(payload)}")
+        logger.debug("#{JSON.pretty_generate(payload)}")
         request.body = JSON.dump(payload)
       end
       response = http_client.request(request)
