@@ -104,7 +104,7 @@ module Cur
         stdout: stdout,
         stderr: stderr
       }
-      OpenStruct.new stream: stripped(request_and_response(:attach_container, id: id, params: params))
+      OpenStruct.new stream: request_and_response(:attach_container, id: id, params: params).split(/\r\n/)
     end
 
     def container_logs(id=nil, follow=false, stdout=true, stderr=true, since=0, timestamps=true, tail='all')
@@ -116,7 +116,7 @@ module Cur
         timestamps: timestamps,
         tail: tail
       }
-      OpenStruct.new stream: stripped(request_and_response(:container_logs, id: id, params: params))
+      OpenStruct.new stream: request_and_response(:container_logs, id: id, params: params).split(/\r\n/)
     end
 
     def wait_container(id=nil)

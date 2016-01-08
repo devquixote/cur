@@ -96,7 +96,7 @@ module Cur
         container = docker.create_container('curtest', container_def)
         expect(docker.start_container(id=container.id)).to be true
         sleep(0.1)
-        expect(docker.attach_container(id=container.id).stream.strip).to eq("curtest")
+        expect(docker.attach_container(id=container.id).stream).to eq(["curtest"])
         expect(docker.wait_container(id=container.id).status_code).to eq(0)
         expect(docker.container_logs(id=container.id).stream).to_not be_empty
         docker.stop_container(container.id)
@@ -224,8 +224,8 @@ module Cur
           end
 
           # Assertions
-          output = docker.attach_container(id=observer.id).stream.strip
-          failure_msg = "Non-zero exit status (#{observer_details.state.exit_code}) - #{output}"
+          output = docker.attach_container(id=observer.id).stream
+          failure_msg = "Non-zero exit status (#{observer_details.state.exit_code}) - #{output.join("; ")}"
           expect(observer_details.state.exit_code).to eq(0), failure_msg
         ensure
           # bring down containers
