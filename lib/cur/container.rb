@@ -106,11 +106,15 @@ module Cur
 
       Thread.new do
         loop do
-          sleep interval
-          stream = docker.attach_container(id).stream
-          new_events = stream - previous_stream
-          block.call(new_events) unless new_events.empty?
-          previous_stream = stream
+          begin
+            sleep interval
+            stream = docker.attach_container(id).stream
+            new_events = stream - previous_stream
+            block.call(new_events) unless new_events.empty?
+            previous_stream = stream
+          rescue => e
+            # should we warn?
+          end
         end
       end
     end

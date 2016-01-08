@@ -22,7 +22,7 @@ module Cur
       :list_containers => Endpoint.new(:Get, "/containers/json", ["200"]),
       :inspect_container => Endpoint.new(:Get, "/containers/%s/json", ["200"]),
       :start_container => Endpoint.new(:Post, "/containers/%s/start", ["204"]),
-      :attach_container => Endpoint.new(:Post, "/containers/%s/attach", ["200"]),
+      :attach_container => Endpoint.new(:Post, "/containers/%s/attach", ["200", "204"]),
       :wait_container => Endpoint.new(:Post, "/containers/%s/wait", ["200"]),
       :stop_container => Endpoint.new(:Post, "/containers/%s/stop", ["204", "304"]),
       :container_logs => Endpoint.new(:Get, "/containers/%s/logs", ["200"]),
@@ -104,7 +104,8 @@ module Cur
         stdout: stdout,
         stderr: stderr
       }
-      OpenStruct.new stream: request_and_response(:attach_container, id: id, params: params).split(/\r\n/)
+      output = request_and_response(:attach_container, id: id, params: params) || ""
+      OpenStruct.new stream: output.split(/\r\n/)
     end
 
     def container_logs(id=nil, follow=false, stdout=true, stderr=true, since=0, timestamps=true, tail='all')
@@ -116,7 +117,8 @@ module Cur
         timestamps: timestamps,
         tail: tail
       }
-      OpenStruct.new stream: request_and_response(:container_logs, id: id, params: params).split(/\r\n/)
+      output = request_and_response(:container_logs, id: id, params: params) || ""
+      OpenStruct.new stream: output.split(/\r\n/)
     end
 
     def wait_container(id=nil)

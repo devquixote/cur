@@ -12,7 +12,7 @@ module Cur
         #service.command = ["/bin/sh", "-c", "sleep 1; nc -v -l -p 8080 -e hostname"]
         #service.command = ["/bin/sh", "-c", "sleep 0.5; echo test"]
         #service.command = ["/bin/sh", "-c", "sleep 1; nc -v -l -p 8080 -e hostname"]
-        service.command = ["/bin/sh", "-c", "sleep 1; nc -vv -l -p 8080 0.0.0.0 -e hostname"]
+        service.command = ["/bin/sh", "-c", "sleep 1; nc -vv -l -p 8080 0.0.0.0 -e hostname; echo finished"]
         service.exposed_ports = [ExposedPort.new("8080", "tcp")]
         service.term_signal = 'SIGKILL'
       end
@@ -23,11 +23,13 @@ module Cur
       begin
         service.create!
         service.start!
+        service.attach do |events|
+          puts "#{service.name}: #{events.join(";  ")}"
+        end
         example.run
       ensure
         observer = docker.list_containers.detect{|c| c.names.include?("/cur.service.observer")}
         docker.delete_container(observer.id, true) rescue nil
-        pp "SERVICE: #{service.attach}" rescue nil
         service.stop! rescue nil
         service.destroy! rescue nil
       end
