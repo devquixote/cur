@@ -1,4 +1,19 @@
 module Cur
+  ServiceObservation = Struct.new(:service, :exposed_port, :status, :exit_code, :output) do
+    def to_s
+      "#{service} not listening on #{exposed_port} (nc exit #{exit_code}): #{output}"
+    end
+  end
+
+  class ServicesNotReadyError < StandardError
+    attr_reader :observations
+
+    def initialize(observations)
+      super(observations.map(&:to_s).join("\n"))
+      @observations = observations
+    end
+  end
+
   class WaitForService
     extend Forwardable
 
@@ -15,37 +30,57 @@ module Cur
           @observers[exposed_port] = observer(exposed_port)
         end
       end
+      @logger = Logger.new(opts[:log_path] || STDOUT)
+      @logger.level = opts[:log_level] || Logger::INFO
     end
 
     def call
       launch_observers!
-      check_observers
+      observe_services_for_readiness
       destroy_observers!
     end
 
+    private
+
     def launch_observers!
       @observers.each do |ep, observer|
-        puts "Waiting for #{name} port #{ep.port} to begin accepting connections"
+        @logger.info "Waiting for #{name} port #{ep.port} to begin accepting connections"
         observer.create!
         observer.start!
       end
     end
 
-    def check_observers
+    def observe_services_for_readiness
       start = Time.now
       loop do
-        elapsed = Time.now - start
-        raise "#{name} not ready within #{wait_timeout} seconds" if elapsed > wait_timeout
-        observer_states = @observers.map{|_, observer| observer.inspect}
-                                    .map{|details| details.state}
-        pp observer_states
-        break if observer_states.reject(&services_observed_ready).empty?
+        observations = @observers.map(&to_service_observations)
+        services_not_ready = observations.reject(&services_observed_ready)
+        break if services_not_ready.empty?
+        if elapsed_since(start) > wait_timeout
+          @logger.warn "Some services not ready after #{wait_timeout} seconds"
+          raise ServicesNotReadyError, services_not_ready
+        end
         sleep(0.1)
       end
     end
 
+    def elapsed_since(start)
+      Time.now - start
+    end
+
+    def to_service_observations
+      lambda do |kv|
+        exposed_port = kv.first
+        observer = kv.last
+        state = observer.inspect.state
+        output = observer.attach.stream
+        ServiceObservation.new name, exposed_port.to_s, state.status,
+                               state.exit_code, output
+      end
+    end
+
     def services_observed_ready
-      lambda {|state| state.status == 'exited' && state.exit_code == 0}
+      lambda {|observation| observation.status == 'exited' && observation.exit_code == 0}
     end
 
     def destroy_observers!
@@ -59,8 +94,8 @@ module Cur
       @observer ||= Container.new(docker) do |container|
         container.name = "#{name}.observer"
         container.type = :task
-        container.image = 'busybox'
-        container.command = ["/bin/sh", "-c", "/bin/echo info | /bin/nc #{name} #{exposed_port.port}"]
+        container.image = 'alpine'
+        container.command = ["/usr/bin/nc", "-vv", name, exposed_port.port.to_s, "-e", "/bin/hostname"]
         container.links = [Link.new(name, name)]
         container.term_signal = 'SIGKILL'
       end
